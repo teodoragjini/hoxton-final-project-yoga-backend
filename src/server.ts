@@ -54,7 +54,12 @@ app.get("/instructors/:id",async (req, res) => {
 })
 
 app.get("/courses",async (req, res) => {
+  console.log(req.query.category)
   const course = await prisma.course.findMany({
+    //@ts-ignore
+    where: {
+      ...(req.query.category != 'null' ? {category: req.query.category} : {})
+    },
     include:{videos:true, Instructor:true}}) 
     res.send(course)
 })
@@ -71,15 +76,29 @@ app.get("/courses/:id",async (req, res) => {
     res.status(404).send({ error: "Course not found" });
   }
 })
-
-app.post("/courses/:id/buy", async (req, res) => {
-  console.log(req.body)
-  const review = await prisma.review.create({
-    data:req.body,
-    include: {User:true}
-  })
-  res.send(review)
+app.get(`/courses/category/:category`, async (req, res) => {
+  try{
+    const courses = await prisma.course.findMany({
+      include:{Instructor:true},
+      where: {
+        category:req.params.category
+      },
+    })
+    res.send(courses)
+  } catch(error) {
+    //@ts-ignore
+    res.status(400).send({error:error.message})
+  }
 })
+
+// app.post("/courses/:id/buy", async (req, res) => {
+//   console.log(req.body)
+//   const review = await prisma.review.create({
+//     data:req.body,
+//     include: {User:true}
+//   })
+//   res.send(review)
+// })
 
 app.post("/reviews", async (req, res) => {
   const review = await prisma.review.create({
