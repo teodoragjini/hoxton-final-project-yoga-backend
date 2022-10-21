@@ -33,36 +33,6 @@ async function getCurrentUser(token: string) {
   return user;
 }
 
-async function getCurrentInstructor(token: string) {
-  //@ts-ignore
-  const { id } = jwt.verify(token, SECRET);
-  const instructor = await prisma.instructor.findUnique({
-    // @ts-ignore
-    where: { id: id },
-  });
-  return instructor;
-}
-
-app.get("/users", async (req, res) => {
-  const users = await prisma.user.findMany({
-    include: { courses: true, reviews: true },
-  });
-  res.send(users);
-});
-
-app.get("/user/:id", async (req, res) => {
-  const user = await prisma.user.findUnique({
-    where: { id: Number(req.params.id) },
-    include: { courses: true, reviews: true },
-  });
-
-  if (user) {
-    res.send(user);
-  } else {
-    res.status(404).send({ error: "User not found" });
-  }
-});
-
 app.get("/instructors", async (req, res) => {
   const instructor = await prisma.instructor.findMany({
     include: { courses: true },
@@ -70,10 +40,10 @@ app.get("/instructors", async (req, res) => {
   res.send(instructor);
 });
 
-app.get("/instructor/:id", async (req, res) => {
+app.get("/instructors/:id",async (req, res) => {
   const instructor = await prisma.instructor.findUnique({
     where: { id: Number(req.params.id) },
-    include: { courses: true },
+    include: { courses: {include: {videos: true}} },
   });
 
   if (instructor) {
@@ -81,7 +51,7 @@ app.get("/instructor/:id", async (req, res) => {
   } else {
     res.status(404).send({ error: "Instructor not found" });
   }
-});
+})
 
 app.get("/courses",async (req, res) => {
   const course = await prisma.course.findMany({
@@ -103,40 +73,39 @@ app.get("/courses/:id",async (req, res) => {
 })
 
 app.post("/courses/:id/buy", async (req, res) => {
-  const course = await prisma.course.update({
-    where: {
-      id: Number(req.params.id) }
-    },
+  console.log(req.body)
+  const review = await prisma.review.create({
+    data:req.body,
+    include: {User:true}
+  })
+  res.send(review)
+})
+
+app.post("/reviews", async (req, res) => {
+  const review = await prisma.review.create({
     data: {
-      users: {
-        createMany: {
-          data: [id: ],
-        },
-      },
+      comment: req.body.comment,
+      userId: Number(req.body.userId),
+      courseId: Number(req.body.courseId),
+      created_at: new Date(),
     },
-  })
-
-
-  const review = await prisma.review.create({
-    data:req.body,
-    include: {User:true}
+    include: {User:true },
+    
   })
   res.send(review)
 })
 
-app.get("/reviews", async (req,res) => {
-  const review = await prisma.review.findMany({
-    include:{User:true}
+app.delete('/reviews/:id', async (req, res) => {
+  const id = Number(req.params.id)
+  const review = await prisma.review.delete({
+    where: {id}
   })
   res.send(review)
 })
 
-app.post("/review", async (req, res) => {
-  const review = await prisma.review.create({
-    data:req.body,
-    include: {User:true}
-  })
-  res.send(review)
+app.patch('/review/:id', async (req, res) => {
+  const id = Number(req.params.id)
+
 })
 
 app.post("/sign-up/user", async (req, res) => {
@@ -177,39 +146,12 @@ app.post("/sign-in", async (req, res) => {
   }
 });
 
-app.post("/sign-in/instructor", async (req, res) => {
-  const instructor = await prisma.instructor.findUnique({
-    where: { email: req.body.email },
-  });
-  if (
-    instructor &&
-    bcrypt.compareSync(req.body.password, instructor.password)
-  ) {
-    res.send({ instructor: instructor, token: getToken(instructor.id) });
-  } else {
-    res.status(400).send({ error: "Invalid email/password combination." });
-  }
-});
-
 app.get("/validate/user", async (req, res) => {
   try {
     if (req.headers.authorization) {
       const user = await getCurrentUser(req.headers.authorization);
       // @ts-ignore
       res.send({ user, token: getToken(user.id) });
-    }
-  } catch (error) {
-    // @ts-ignore
-    res.status(400).send({ error: error.message });
-  }
-});
-
-app.get("/validate/instructor", async (req, res) => {
-  try {
-    if (req.headers.authorization) {
-      const instructor = await getCurrentInstructor(req.headers.authorization);
-      // @ts-ignore
-      res.send({ instructor, token: getToken(instructor.id) });
     }
   } catch (error) {
     // @ts-ignore
